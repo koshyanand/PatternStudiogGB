@@ -45,9 +45,12 @@ public class MainActivity extends AppCompatActivity {
     static final int REQUEST_OPEN_IMAGE = 1;
     private static final String TAG = MainActivity.class.getSimpleName();
     public static final int PERMISSION_REQUEST = 101;
+    public static final int IMAGE_REQUEST_CODE = 111;
+    public static final int PATTERN_REQUEST_CODE = 112;
 
     String mCurrentPhotoPath;
     Bitmap mBitmap;
+    Bitmap mPatternBitmap;
     ImageView mImageView;
     int touchCount = 0;
     Point tl;
@@ -99,11 +102,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == Config.RC_PICK_IMAGES && resultCode == RESULT_OK && data != null) {
+        if (requestCode == IMAGE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             ArrayList<Image> images = data.getParcelableArrayListExtra(Config.EXTRA_IMAGES);
             mCurrentPhotoPath = images.get(0).getPath();
             Log.d(TAG, "onActivityResult: " + mCurrentPhotoPath);
             setPic();
+        }
+
+        if (requestCode == PATTERN_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            ArrayList<Image> images = data.getParcelableArrayListExtra(Config.EXTRA_IMAGES);
+            Log.d(TAG, "onActivityResult: Got pattern");
+            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+            mPatternBitmap = BitmapFactory.decodeFile(images.get(0).getPath(),bmOptions);
+            mImageView.setImageBitmap(mPatternBitmap);
         }
 
         if (requestCode == PERMISSION_REQUEST) {
@@ -118,6 +129,19 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         switch (id) {
+            case R.id.action_add_pattern:
+                if ((ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) & (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) & (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        != PackageManager.PERMISSION_GRANTED)){
+                    // Permission is not granted
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, PERMISSION_REQUEST);
+                } else {
+                    ImagePicker.with(this).setRequestCode(PATTERN_REQUEST_CODE).start();
+                }
+                return true;
+
             case R.id.action_open_img:
                 if ((ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                         != PackageManager.PERMISSION_GRANTED) & (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -127,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                     ActivityCompat.requestPermissions(this,
                             new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, PERMISSION_REQUEST);
                 } else {
-                    ImagePicker.with(this).start();
+                    ImagePicker.with(this).setRequestCode(IMAGE_REQUEST_CODE).start();
                 }
                 return true;
             case R.id.action_choose_target:

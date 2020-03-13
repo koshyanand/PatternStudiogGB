@@ -7,4 +7,7 @@
         android:orderInCategory="200" app:showAsAction="never" />
     <item android:id="@+id/action_cut_image" android:title="@string/menu_cut"
         android:orderInCategory="300" app:showAsAction="never" />
+
+    <item android:id="@+id/action_add_pattern" android:title="@string/add_pattern"
+        android:orderInCategory="300" app:showAsAction="never" />
 </menu>
