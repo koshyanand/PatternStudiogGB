@@ -9,7 +9,6 @@ import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageView;
 
 public class DrawableImageView extends androidx.appcompat.widget.AppCompatImageView implements View.OnTouchListener {
     float downx = 0;
@@ -60,20 +59,20 @@ public class DrawableImageView extends androidx.appcompat.widget.AppCompatImageV
         switch (action)
         {
             case MotionEvent.ACTION_DOWN:
-                downx = getPointerCoords(event)[0];//event.getX();
-                downy = getPointerCoords(event)[1];//event.getY();
+                downx = Util.getPointerCoords(event, this)[0];//event.getX();
+                downy = Util.getPointerCoords(event, this)[1];//event.getY();
                 break;
             case MotionEvent.ACTION_MOVE:
-                upx = getPointerCoords(event)[0];//event.getX();
-                upy = getPointerCoords(event)[1];//event.getY();
+                upx = Util.getPointerCoords(event, this)[0];//event.getX();
+                upy = Util.getPointerCoords(event, this)[1];//event.getY();
                 canvas.drawLine(downx, downy, upx, upy, paint);
                 invalidate();
                 downx = upx;
                 downy = upy;
                 break;
             case MotionEvent.ACTION_UP:
-                upx = getPointerCoords(event)[0];//event.getX();
-                upy = getPointerCoords(event)[1];//event.getY();
+                upx = Util.getPointerCoords(event, this)[0];//event.getX();
+                upy = Util.getPointerCoords(event, this)[1];//event.getY();
                 canvas.drawLine(downx, downy, upx, upy, paint);
                 invalidate();
                 break;
@@ -85,14 +84,4 @@ public class DrawableImageView extends androidx.appcompat.widget.AppCompatImageV
         return true;
     }
 
-    final float[] getPointerCoords(MotionEvent e)
-    {
-        final int index = e.getActionIndex();
-        final float[] coords = new float[] { e.getX(index), e.getY(index) };
-        Matrix matrix = new Matrix();
-        getImageMatrix().invert(matrix);
-        matrix.postTranslate(getScrollX(), getScrollY());
-        matrix.mapPoints(coords);
-        return coords;
-    }
 }

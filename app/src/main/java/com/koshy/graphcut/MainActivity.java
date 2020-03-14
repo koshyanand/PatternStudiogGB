@@ -69,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
         br = new Point();
         if (!OpenCVLoader.initDebug()) {
             // Handle initialization error
-            Log.d(MainActivity.class.getSimpleName(), "onCreate: OPENCV Error");
         }
     }
 
@@ -78,26 +77,6 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
-    }
-
-    private void setPic() {
-        int targetW = mImageView.getWidth();
-        int targetH = mImageView.getHeight();
-
-        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
-        bmOptions.inJustDecodeBounds = true;
-        BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
-        int photoW = bmOptions.outWidth;
-        int photoH = bmOptions.outHeight;
-
-        int scaleFactor = Math.min(photoW / targetW, photoH / targetH);
-
-        bmOptions.inJustDecodeBounds = false;
-        bmOptions.inSampleSize = scaleFactor;
-        bmOptions.inPurgeable = true;
-
-        mBitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
-        mImageView.setImageBitmap(mBitmap);
     }
 
     @Override
@@ -112,8 +91,6 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == PATTERN_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             ArrayList<Image> images = data.getParcelableArrayListExtra(Config.EXTRA_IMAGES);
             Log.d(TAG, "onActivityResult: Got pattern");
-//            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
-//            mImageView.setImageBitmap(mPatternBitmap);
             mPatternPath = images.get(0).getPath();
         }
 
@@ -157,48 +134,7 @@ public class MainActivity extends AppCompatActivity {
             case R.id.action_choose_target:
                 if (mCurrentPhotoPath != null)
                     targetChose = false;
-                    mImageView.setOnTouchListener(new View.OnTouchListener() {
-
-                        @SuppressLint("ClickableViewAccessibility")
-                        @Override
-                        public boolean onTouch(View v, MotionEvent event) {
-                            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                                Log.d(TAG, "onTouch: Down");
-                                if (touchCount == 0) {
-                                    tl.x = event.getX();
-                                    tl.y = event.getY();
-                                    touchCount++;
-                                }
-                                else if (touchCount == 1) {
-                                    br.x = event.getX();
-                                    br.y = event.getY();
-
-                                    Paint rectPaint = new Paint();
-                                    rectPaint.setARGB(255, 255, 0, 0);
-                                    rectPaint.setStyle(Paint.Style.STROKE);
-                                    rectPaint.setStrokeWidth(3);
-                                    Bitmap tmpBm = Bitmap.createBitmap(mBitmap.getWidth(),
-                                            mBitmap.getHeight(), Bitmap.Config.RGB_565);
-                                    Canvas tmpCanvas = new Canvas(tmpBm);
-
-                                    tmpCanvas.drawBitmap(mBitmap, 0, 0, null);
-                                    tmpCanvas.drawRect(new RectF((float) tl.x, (float) tl.y, (float) br.x, (float) br.y),
-                                            rectPaint);
-                                    mImageView.setImageDrawable(new BitmapDrawable(getResources(), tmpBm));
-
-                                    targetChose = true;
-                                    touchCount = 0;
-                                    mImageView.setOnTouchListener(null);
-                                }
-                            }
-
-                            if (event.getAction() == MotionEvent.ACTION_UP) {
-                                Log.d(TAG, "onTouch: UP");
-
-                            }
-                                return true;
-                        }
-                    });
+                mImageView.setOnTouchListener(touchListener);
 
                 return true;
             case R.id.action_cut_image:
@@ -210,6 +146,65 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    View.OnTouchListener touchListener = new View.OnTouchListener() {
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                Log.d(TAG, "onTouch: Down");
+                if (touchCount == 0) {
+                    float[] pointerCoords = Util.getPointerCoords(event, mImageView);
+                    tl.x = pointerCoords[0];
+                    tl.y = pointerCoords[1];
+                    touchCount++;
+                } else if (touchCount == 1) {
+                    float[] pointerCoords = Util.getPointerCoords(event, mImageView);
+
+                    br.x = pointerCoords[0];
+                    br.y = pointerCoords[1];
+
+                    Paint rectPaint = new Paint();
+                    rectPaint.setARGB(255, 255, 0, 0);
+                    rectPaint.setStyle(Paint.Style.STROKE);
+                    rectPaint.setStrokeWidth(3);
+                    Bitmap tmpBm = Bitmap.createBitmap(mBitmap.getWidth(),
+                            mBitmap.getHeight(), Bitmap.Config.RGB_565);
+                    Canvas tmpCanvas = new Canvas(tmpBm);
+
+                    tmpCanvas.drawBitmap(mBitmap, 0, 0, null);
+                    tmpCanvas.drawRect(new RectF((float) tl.x, (float) tl.y, (float) br.x, (float) br.y),
+                            rectPaint);
+                    mImageView.setImageDrawable(new BitmapDrawable(getResources(), tmpBm));
+
+                    targetChose = true;
+                    touchCount = 0;
+                    mImageView.setOnTouchListener(null);
+                }
+            }
+
+            return true;
+        }
+    };
+
+    private void setPic() {
+        int targetW = mImageView.getWidth();
+        int targetH = mImageView.getHeight();
+
+        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+        bmOptions.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
+        int photoW = bmOptions.outWidth;
+        int photoH = bmOptions.outHeight;
+
+        int scaleFactor = Math.min(photoW / targetW, photoH / targetH);
+
+        bmOptions.inJustDecodeBounds = false;
+        bmOptions.inSampleSize = scaleFactor;
+        bmOptions.inPurgeable = true;
+
+        mBitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
+        mImageView.setImageBitmap(mBitmap);
     }
 
     private class ProcessImageTask extends AsyncTask<Integer, Integer, Integer> {
@@ -252,12 +247,12 @@ public class MainActivity extends AppCompatActivity {
 
             Mat pattern = Imgcodecs.imread(mPatternPath);
 
-            Mat result = Util.addPatternUsingFGMask(firstMask, pattern, img);
+            Util.addPatternUsingFGMask(firstMask, pattern, img);
             firstMask.release();
             source.release();
             bgModel.release();
             fgModel.release();
-            Imgcodecs.imwrite(mCurrentPhotoPath + ".png", result);
+            Imgcodecs.imwrite(mCurrentPhotoPath + ".png", img);
 //
 //            Scalar color = new Scalar(255, 0, 0, 255);
 //            Imgproc.rectangle(img, tl, br, color);
