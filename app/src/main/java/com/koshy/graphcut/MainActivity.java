@@ -38,7 +38,11 @@ import org.opencv.core.Scalar;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+
+import static org.opencv.core.CvType.CV_32FC1;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -49,13 +53,18 @@ public class MainActivity extends AppCompatActivity {
     public static final int PATTERN_REQUEST_CODE = 112;
 
     String mCurrentPhotoPath;
+//    String mCurrentPhotoPath = "/storage/emulated/0/WhatsApp/Media/WallPaper/080fb730a49ee62dec5ee09a4a33ff3a.jpg";
+
     Bitmap mBitmap;
     String mPatternPath;
+//    String mPatternPath = "/storage/emulated/0/Download/istockphoto-841479514-612x612.jpg";
     ImageView mImageView;
     int touchCount = 0;
     Point tl;
+//    Point tl = new Point(225.8816680908203 , 1074.50830078125);
     Point br;
-    boolean targetChose = false;
+//    Point br = new Point(841.9195556640625 , 2060.575439453125);
+    boolean targetChose = true;
     ProgressDialog dlg;
 
     @Override
@@ -84,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == IMAGE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             ArrayList<Image> images = data.getParcelableArrayListExtra(Config.EXTRA_IMAGES);
             mCurrentPhotoPath = images.get(0).getPath();
-            Log.d(TAG, "onActivityResult: " + mCurrentPhotoPath);
+            Log.d(TAG, "onActivityResult: Photo : " + mCurrentPhotoPath);
             setPic();
         }
 
@@ -92,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Image> images = data.getParcelableArrayListExtra(Config.EXTRA_IMAGES);
             Log.d(TAG, "onActivityResult: Got pattern");
             mPatternPath = images.get(0).getPath();
+            Log.d(TAG, "onActivityResult: Pattern : " + mPatternPath);
         }
 
         if (requestCode == PERMISSION_REQUEST) {
@@ -157,12 +167,14 @@ public class MainActivity extends AppCompatActivity {
                     float[] pointerCoords = Util.getPointerCoords(event, mImageView);
                     tl.x = pointerCoords[0];
                     tl.y = pointerCoords[1];
+                    Log.d(TAG, "onTouch TL: " + tl.x + " , " + tl.y);
                     touchCount++;
                 } else if (touchCount == 1) {
                     float[] pointerCoords = Util.getPointerCoords(event, mImageView);
 
                     br.x = pointerCoords[0];
                     br.y = pointerCoords[1];
+                    Log.d(TAG, "onTouch BR: " + br.x + " , " + br.y);
 
                     Paint rectPaint = new Paint();
                     rectPaint.setARGB(255, 255, 0, 0);
@@ -232,56 +244,54 @@ public class MainActivity extends AppCompatActivity {
             Mat source = new Mat(1, 1, CvType.CV_8U, new Scalar(Imgproc.GC_PR_FGD));
             Mat dst = new Mat();
             Rect rect = new Rect(tl, br);
-
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd G 'at' HH:mm:ss z");
+            String currentDateandTime = sdf.format(new Date());
+            Log.d(TAG, "doInBackground: Starting GrabCut : " + currentDateandTime);
             Imgproc.grabCut(img, firstMask, rect, bgModel, fgModel,
                     5, Imgproc.GC_INIT_WITH_RECT);
+            currentDateandTime = sdf.format(new Date());
+            Log.d(TAG, "doInBackground: Finished GrabCut : " + currentDateandTime);
             Core.compare(firstMask, source, firstMask, Core.CMP_EQ);
 
-//            Mat foreground = new Mat(img.size(), CvType.CV_8UC3,
-//                    new Scalar(0, 0, 0));
+            Mat foreground = new Mat(img.size(), CvType.CV_8UC3,
+                    new Scalar(0, 0, 0));
 
 //            int[][][] fg3D = Util.generate3DArray((int) img.size().height, (int) img.size().width, -1);
 //            Util.printMat(firstMask);
 
-//            img.copyTo(foreground, firstMask);
+            img.copyTo(foreground, firstMask);
 
-            Mat pattern = Imgcodecs.imread(mPatternPath);
+            Mat pat = Imgcodecs.imread(mPatternPath);
+            Mat pattern = new Mat();
+            Imgproc.resize( pat, pattern, img.size());
 
-            Util.addPatternUsingFGMask(firstMask, pattern, img);
+            Mat img_grey = Util.convertToGreyScale(foreground);
+            Mat img_grey_cont = Util.increaseContrast(img_grey);
+            Log.d(TAG, "doInBackground1: " + img_grey_cont.type());
+
+            Mat img_grey_cont_blur = Util.addGaussianBlur(img_grey_cont);
+            Mat map = new Mat(img_grey_cont_blur.size(), CV_32FC1);
+
+            img_grey_cont_blur.convertTo(map, CV_32FC1, 1.0f / 255.0f);
+//            map = img_grey_cont_blur.clone();
+            Log.d(TAG, "doInBackground2: " + map.type());
+
+            currentDateandTime = sdf.format(new Date());
+            Log.d(TAG, "doInBackground: Starting Displacement : " + currentDateandTime);
+
+            Mat displacedPattern = Util.displaceImage1(pattern, map);
+            currentDateandTime = sdf.format(new Date());
+            Log.d(TAG, "doInBackground: Completed Displacement : " + currentDateandTime);
+
+            Mat grey_color = Util.convertToRGB(img_grey);
+            Mat result = Util.blend(displacedPattern, grey_color);
+//
+            Util.addPatternUsingFGMask(firstMask, result, img);
             firstMask.release();
             source.release();
             bgModel.release();
             fgModel.release();
             Imgcodecs.imwrite(mCurrentPhotoPath + ".png", img);
-//
-//            Scalar color = new Scalar(255, 0, 0, 255);
-//            Imgproc.rectangle(img, tl, br, color);
-//
-//            Mat tmp = new Mat();
-//            System.out.println("Temp : " + String.valueOf(tmp.));
-//
-//            Imgproc.resize(background, tmp, img.size());
-//            background = tmp;
-//            mask = new Mat(foreground.size(), CvType.CV_8UC1,
-//                    new Scalar(255, 255, 255));
-//
-//            Imgproc.cvtColor(foreground, mask, Imgproc.COLOR_BGR2GRAY);
-//            Imgproc.threshold(mask, mask, 254, 255, Imgproc.THRESH_BINARY_INV);
-//            System.out.println();
-//            Mat vals = new Mat(1, 1, CvType.CV_8UC3, new Scalar(0.0));
-//            background.copyTo(dst);
-//
-//            background.setTo(vals, mask);
-//
-//            Core.add(background, foreground, dst, mask);
-//
-//            firstMask.release();
-//            source.release();
-//            bgModel.release();
-//            fgModel.release();
-//            vals.release();
-//
-//            Imgcodecs.imwrite(mCurrentPhotoPath + ".png", dst);
 
             return 0;
         }
