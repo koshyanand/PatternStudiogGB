@@ -1,5 +1,7 @@
 package com.koshy.graphcut;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -11,8 +13,11 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.util.Arrays;
 
 import static org.opencv.imgproc.Imgproc.INTER_LINEAR;
@@ -132,5 +137,35 @@ public class Util {
         double beta = 1.0 - alpha;
         Core.addWeighted(img1, alpha, img2, beta, 0.0, result);
         return result;
+    }
+
+    public static Bitmap scaleImage(String imagePath, int scalePercentage) {
+        // Decode image size
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(imagePath, o);
+
+        // The new size we want to scale to
+        final int REQUIRED_SIZE = scalePercentage;
+
+        // Find the correct scale value. It should be the power of 2.
+        int scale = 1;
+        while (o.outWidth / scale / 2 >= REQUIRED_SIZE &&
+                o.outHeight / scale / 2 >= REQUIRED_SIZE) {
+            scale *= 2;
+        }
+
+        // Decode with inSampleSize
+        BitmapFactory.Options o2 = new BitmapFactory.Options();
+        o2.inSampleSize = scale;
+        return BitmapFactory.decodeFile(imagePath, o2);
+    }
+
+    public static void setImageSize(String mCurrentPhotoPath, int width, int height) {
+        Mat img = Imgcodecs.imread(mCurrentPhotoPath);
+        Size sz = new Size(width, height);
+        Mat resizedImg = new Mat();
+        Imgproc.resize(img, resizedImg, sz);
+        Imgcodecs.imwrite(mCurrentPhotoPath + ".png", img);
     }
 }

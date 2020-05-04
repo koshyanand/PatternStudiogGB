@@ -8,9 +8,11 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
+import android.media.ExifInterface;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -66,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
 //    Point br = new Point(841.9195556640625 , 2060.575439453125);
     boolean targetChose = true;
     ProgressDialog dlg;
-
+    Matrix mRotateMatrix;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -182,12 +184,14 @@ public class MainActivity extends AppCompatActivity {
                     rectPaint.setStrokeWidth(3);
                     Bitmap tmpBm = Bitmap.createBitmap(mBitmap.getWidth(),
                             mBitmap.getHeight(), Bitmap.Config.RGB_565);
+
                     Canvas tmpCanvas = new Canvas(tmpBm);
 
                     tmpCanvas.drawBitmap(mBitmap, 0, 0, null);
                     tmpCanvas.drawRect(new RectF((float) tl.x, (float) tl.y, (float) br.x, (float) br.y),
                             rectPaint);
-                    mImageView.setImageDrawable(new BitmapDrawable(getResources(), tmpBm));
+                    BitmapDrawable drawable = new BitmapDrawable(getResources(), tmpBm);
+                    mImageView.setImageDrawable(drawable);
 
                     targetChose = true;
                     touchCount = 0;
@@ -202,6 +206,8 @@ public class MainActivity extends AppCompatActivity {
     private void setPic() {
         int targetW = mImageView.getWidth();
         int targetH = mImageView.getHeight();
+        Util.setImageSize(mCurrentPhotoPath, 500, 500);
+//        Bitmap bitmap = Util.scaleImage(mCurrentPhotoPath, 70);
 
         BitmapFactory.Options bmOptions = new BitmapFactory.Options();
         bmOptions.inJustDecodeBounds = true;
@@ -216,7 +222,29 @@ public class MainActivity extends AppCompatActivity {
         bmOptions.inPurgeable = true;
 
         mBitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
-        mImageView.setImageBitmap(mBitmap);
+        Bitmap n_bitmap = null;
+        try {
+            ExifInterface exif = new ExifInterface(mCurrentPhotoPath);
+            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 1);
+            Log.d("EXIF", "Exif: " + orientation);
+            Matrix matrix = new Matrix();
+            if (orientation == 6) {
+                matrix.postRotate(90);
+            }
+            else if (orientation == 3) {
+                matrix.postRotate(180);
+            }
+            else if (orientation == 8) {
+                matrix.postRotate(270);
+            }
+            mRotateMatrix = matrix;
+            n_bitmap = Bitmap.createBitmap(mBitmap, 0, 0, mBitmap.getWidth(), mBitmap.getHeight(), matrix, true); // rotating bitmap
+        }
+        catch (Exception e) {
+
+        }
+        mBitmap = n_bitmap;
+        mImageView.setImageBitmap(n_bitmap);
     }
 
     private class ProcessImageTask extends AsyncTask<Integer, Integer, Integer> {
@@ -233,7 +261,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected Integer doInBackground(Integer... params) {
-            Mat img = Imgcodecs.imread(mCurrentPhotoPath);
+            Mat img = Imgcodecs.imread(mCurrentPhotoPath + ".png");
 
             Mat background = new Mat(img.size(), CvType.CV_8UC3,
                     new Scalar(255, 255, 255));
@@ -291,7 +319,16 @@ public class MainActivity extends AppCompatActivity {
             source.release();
             bgModel.release();
             fgModel.release();
-            Imgcodecs.imwrite(mCurrentPhotoPath + ".png", img);
+            grey_color.release();
+            img_grey_cont_blur.release();
+            result.release();
+            displacedPattern.release();
+            map.release();
+            img_grey.release();
+            pat.release();
+            pattern.release();
+            foreground.release();
+            Imgcodecs.imwrite(mCurrentPhotoPath, img);
 
             return 0;
         }
@@ -301,12 +338,13 @@ public class MainActivity extends AppCompatActivity {
             super.onPostExecute(result);
 
             Bitmap jpg = BitmapFactory
-                    .decodeFile(mCurrentPhotoPath + ".png");
+                    .decodeFile(mCurrentPhotoPath);
+            mBitmap = Bitmap.createBitmap(jpg, 0, 0, mBitmap.getWidth(), mBitmap.getHeight(), mRotateMatrix, true); // rotating bitmap
 
             mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             mImageView.setAdjustViewBounds(true);
             mImageView.setPadding(2, 2, 2, 2);
-            mImageView.setImageBitmap(jpg);
+            mImageView.setImageBitmap(mBitmap);
             mImageView.invalidate();
 
             dlg.dismiss();
